@@ -1,0 +1,30 @@
+template: "
+
+###
+<Column Information>
+
+DELI_PL_CD: Code of the store,
+
+DELI_PL_NM: Name of the store,
+
+DELI_PL_TYPE: Type of the store,
+
+ZIP_ADDR: Adress of the store,
+
+DATETIME: Information about date in year-month, str format,
+
+SALES: Sales volume,
+
+DELI_LONGITUDE: Longitude of the store,
+
+DELI_LATITUDE: Latitude of the store,
+
+DISTANCE_KM: Distance between the road and the store,
+
+ROAD_NM: Name of the road closest to the store,
+
+TRAFFIC: Traffic of the store,
+
+ROAD_LONGITUDE: Longitude of the road,
+
+ROAD_LATITUDE: Latitude of the road,"

@@ -1,0 +1,30 @@
+template: "
+
+###
+<Column Information>
+
+DELI_PL_CD: 영업점 코드,
+
+DELI_PL_NM: 영업점 이름,
+
+DELI_PL_TYPE: 영업점 종류,
+
+ZIP_ADDR: 영업점 주소,
+
+DATETIME: 연도와 월 정보, str로 저장,
+
+SALES: 판매량,
+
+DELI_LONGITUDE: 영업점의 경도,
+
+DELI_LATITUDE: 영업점의 위도,
+
+DISTANCE_KM: 영업점과 도로 사이의 거리,
+
+ROAD_NM: 영업점과 가장 가까운 도로의 이름,
+
+TRAFFIC: 도로의 통행량,
+
+ROAD_LONGITUDE: 도로의 경도,
+
+ROAD_LATITUDE: 도로의 위도,"

@@ -1,0 +1,19 @@
+# IntraSeek Environment Variables Template
+# Copy this file to .env and fill in your values
+
+# OpenAI Configuration (Recommended)
+OPENAI_API_KEY=your_openai_api_key_here
+SELECTED_EMBEDDING=text-embedding-3-large
+SELECTED_LLM=gpt-4o-mini
+
+# Ollama Configuration (Alternative - if you don't have OpenAI API key)
+# OLLAMA_BASE_URL=http://localhost:11434
+# SELECTED_EMBEDDING=nomic-embed-text
+# SELECTED_LLM=llama3.1:8b
+
+# Instructions:
+# 1. Copy this file to .env in the root directory
+# 2. Fill in your actual API keys and preferences
+# 3. For OpenAI: Get your API key from https://platform.openai.com/api-keys
+# 4. For Ollama: Make sure Ollama is running locally
+# 5. The app will automatically detect which configuration to use
