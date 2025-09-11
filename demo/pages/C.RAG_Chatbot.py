@@ -298,10 +298,45 @@ with col1:
                                         file_data = file.read()
 
                                     if selected_rag_config["document_format"] == "pdf":
-                                        pdf_display = display_pdf(file_data, scale=0.8, height=620)
-                                        st.markdown(pdf_display, unsafe_allow_html=True)
+                                        # Use streamlit_pdf_viewer for better PDF display
+                                        try:
+                                            from streamlit_pdf_viewer import pdf_viewer
+                                            import tempfile
+                                            import os
+                                            
+                                            # Create a temporary file and write PDF data to it
+                                            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                                                tmp_file.write(file_data)
+                                                tmp_file_path = tmp_file.name
+                                            
+                                            # Use pdf_viewer with the temporary file path
+                                            pdf_viewer(tmp_file_path, width=700, height=650)
+                                            
+                                            # Clean up the temporary file
+                                            try:
+                                                os.unlink(tmp_file_path)
+                                            except:
+                                                pass
+                                                
+                                        except ImportError:
+                                            st.error("streamlit-pdf-viewer 패키지가 설치되지 않았습니다.")
+                                            st.info("다음 명령어로 설치하세요: pip install streamlit-pdf-viewer")
+                                            # Fallback to original method
+                                            pdf_display = display_pdf(file_data, scale=0.8, height=650)
+                                            st.markdown(pdf_display, unsafe_allow_html=True)
+                                        except Exception as e:
+                                            st.error(f"PDF 표시 오류: {str(e)}")
+                                            # Clean up temporary file if it exists
+                                            try:
+                                                if 'tmp_file_path' in locals():
+                                                    os.unlink(tmp_file_path)
+                                            except:
+                                                pass
+                                            # Fallback to original method
+                                            pdf_display = display_pdf(file_data, scale=0.8, height=650)
+                                            st.markdown(pdf_display, unsafe_allow_html=True)
                                     elif selected_rag_config["document_format"] in ["docx", "docc"]:
-                                        docx_display = display_docx(file_data, scale=0.8, height=620)
+                                        docx_display = display_docx(file_data, scale=0.8, height=650)
                                         st.markdown(docx_display, unsafe_allow_html=True)
                                     else:
                                         st.error("Unsupported file format")

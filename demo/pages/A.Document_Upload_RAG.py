@@ -117,7 +117,7 @@ col1, col2, col3 = st.columns([1, 1, 1])
 
 with col1:
     st.write("### 📄 **Documents Preview**")
-    with st.container(height=600):
+    with st.container(height=700):
         num_tabs = (
             min(len(st.session_state["uploaded_files"]), 5) if st.session_state["uploaded_files"] else 0
         )
@@ -135,10 +135,45 @@ with col1:
                         file_data = file.read()
 
                         if file_extension == ".pdf":
-                            pdf_display = display_pdf(file_data, scale=0.8, height=400)
-                            st.markdown(pdf_display, unsafe_allow_html=True)
+                            # Use streamlit_pdf_viewer for better PDF display
+                            try:
+                                from streamlit_pdf_viewer import pdf_viewer
+                                import tempfile
+                                import os
+                                
+                                # Create a temporary file and write PDF data to it
+                                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                                    tmp_file.write(file_data)
+                                    tmp_file_path = tmp_file.name
+                                
+                                # Use pdf_viewer with the temporary file path
+                                pdf_viewer(tmp_file_path, width=700, height=620)
+                                
+                                # Clean up the temporary file
+                                try:
+                                    os.unlink(tmp_file_path)
+                                except:
+                                    pass
+                                    
+                            except ImportError:
+                                st.error("streamlit-pdf-viewer 패키지가 설치되지 않았습니다.")
+                                st.info("다음 명령어로 설치하세요: pip install streamlit-pdf-viewer")
+                                # Fallback to original method
+                                pdf_display = display_pdf(file_data, scale=0.9, height=620)
+                                st.markdown(pdf_display, unsafe_allow_html=True)
+                            except Exception as e:
+                                st.error(f"PDF 표시 오류: {str(e)}")
+                                # Clean up temporary file if it exists
+                                try:
+                                    if 'tmp_file_path' in locals():
+                                        os.unlink(tmp_file_path)
+                                except:
+                                    pass
+                                # Fallback to original method
+                                pdf_display = display_pdf(file_data, scale=0.9, height=620)
+                                st.markdown(pdf_display, unsafe_allow_html=True)
                         elif file_extension in [".docx", ".docc"]:
-                            docx_display = display_docx(file_data, scale=0.8, height=400)
+                            docx_display = display_docx(file_data, scale=0.9, height=620)
                             st.markdown(docx_display, unsafe_allow_html=True)
                         else:
                             st.error("Unsupported file format")
@@ -149,7 +184,7 @@ with col1:
 
 with col2:
     st.write("### ⚙️ **Prompt Settings**")
-    with st.container(height=600):
+    with st.container(height=700):
         tab1, tab2 = st.tabs(["System Prompt", "Examples"])
 
         with tab1:
@@ -183,7 +218,7 @@ with col2:
                 edited_message = st.text_area(
                     "System Prompt",
                     system_prompt,
-                    height=300,
+                    height=265,
                     label_visibility="collapsed",
                 )
             except Exception as e:
@@ -237,7 +272,7 @@ with col2:
 
 with col3:
     st.write("### 🗄️ **Vector Database Settings**")
-    with st.container(height=600):
+    with st.container(height=700):
         if st.session_state["uploaded_files"]:
             doc_names = [doc.name for doc in st.session_state["uploaded_files"]]
             st.write("**Uploaded files:**")

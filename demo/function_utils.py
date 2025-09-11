@@ -122,6 +122,8 @@ def display_pdf(file_data: bytes, scale: float = 1.0, height: int = 700) -> str:
     return pdf_display
 
 
+
+
 def convert_docx_to_html(file_data: bytes) -> str:
     """
     docx 파일 데이터를 HTML로 변환하는 함수.
