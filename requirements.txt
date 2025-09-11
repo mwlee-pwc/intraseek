@@ -1,6 +1,7 @@
 # Core Streamlit and UI
 streamlit==1.38.0
 Pillow==10.0.0
+streamlit-pdf-viewer==0.0.26
 
 # Environment and Configuration
 python-dotenv==1.0.1
@@ -8,7 +9,7 @@ pyyaml==6.0.1
 
 # LangChain Core
 langchain==0.2.16
-langchain-core==0.2.16
+langchain-core==0.2.38
 langchain-community==0.2.16
 
 # LangChain Integrations

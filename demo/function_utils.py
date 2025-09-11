@@ -7,7 +7,8 @@ import re
 import shutil
 from io import BytesIO
 from time import time
-from typing import Any
+from typing import Any, Dict, List, Tuple, Optional
+from difflib import SequenceMatcher
 
 import mammoth
 import pandas as pd
@@ -428,3 +429,137 @@ def check_korean(text):
         return False
     else:
         return True
+
+
+class SimpleFAQSystem:
+    """
+    A simple FAQ system that uses string similarity to match user queries
+    to predefined questions and return predefined answers.
+    """
+    
+    def __init__(self, faq_data: List[Dict[str, str]], similarity_threshold: float = 0.8):
+        """
+        Initialize the FAQ system.
+        
+        Args:
+            faq_data: List of dictionaries with 'question' and 'answer' keys
+            similarity_threshold: Minimum similarity score to trigger FAQ response (0.0-1.0)
+        """
+        self.faq_data = faq_data
+        self.similarity_threshold = similarity_threshold
+        
+    def _normalize_text(self, text: str) -> str:
+        """Normalize text for better matching."""
+        # Convert to lowercase
+        text = text.lower()
+        # Remove extra whitespace
+        text = re.sub(r'\s+', ' ', text)
+        # Remove punctuation except question marks and Korean characters
+        # Keep Korean characters, alphanumeric, spaces, and question marks
+        text = re.sub(r'[^\w\s?가-힣]', '', text)
+        return text.strip()
+    
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+        """Calculate similarity between two texts using SequenceMatcher."""
+        return SequenceMatcher(None, text1, text2).ratio()
+    
+    def _find_best_match(self, user_query: str) -> Tuple[Optional[str], float]:
+        """
+        Find the best matching FAQ question.
+        
+        Returns:
+            Tuple of (answer, similarity_score) or (None, 0.0) if no match
+        """
+        normalized_query = self._normalize_text(user_query)
+        best_match = None
+        best_score = 0.0
+        
+        for i, faq in enumerate(self.faq_data):
+            normalized_question = self._normalize_text(faq['question'])
+            similarity = self._calculate_similarity(normalized_query, normalized_question)
+            
+            if similarity > best_score:
+                best_score = similarity
+                best_match = faq['answer']
+        
+        return best_match, best_score
+    
+    def get_response(self, user_query: str) -> Optional[str]:
+        """
+        Get FAQ response if query matches any predefined question.
+        
+        Args:
+            user_query: The user's input query
+            
+        Returns:
+            Predefined answer if match found, None otherwise
+        """
+        answer, similarity = self._find_best_match(user_query)
+        
+        if similarity >= self.similarity_threshold:
+            return answer
+        
+        return None
+
+
+# Hardcoded FAQ data - customize these for your demo
+FAQ_DATA = [
+    {
+        "question": "RFP에서 요구하는 회사 일반 현황을 다른 제안서을 참고해서 구체적인 작성 가이드를 줘",
+        "answer": """
+💡 RFP에서는 '회사 일반 현황'에 "주요 연혁 및 사업 내용, 조직 및 인력 구성, 주요 사업 분야, 재무 현황"을 제시하도록 요구하고 있습니다.
+RAG DB에서 찾은 유사한 제안서에는 '회사소개' 파트에서 회사 개요, 글로벌 네트워크 등을 강조하고 있습니다.
+이를 바탕으로, 삼성화재 RFP 용 회사 일반 현황 작성 가이드를 드리겠습니다.
+
+- 1. 주요 연혁 및 사업 내용: "최근 3개년 주요 프로젝트 실적" 슬라이드 형식을 활용하되, 단순 연혁 나열보다는 AI/디지털 전환 관련 성과를 강조
+- 2. 조직 및 인력 구성: 회사 전체 조직도와 관련된 전담 조직을 소개. 제안서의 "국내 최다 1,200명 컨설턴트, 석/박사급 49명 보유" 등 숫자를 강조한 슬라이드를 활용 및 전문 인력의 스킬셋과 관련 프로젝트 경험을 나열
+- 3. 주요 사업 분야: 회사의 핵심 사업 영역(예: AI 전략 컨설팅, 데이터 플랫폼 구축, 금융권 디지털 혁신 등) 및 금융·보험 분야의 경험을 별도로 강조 (삼성화재와의 연관성 부각) 제안서의 "산업별 전문가 그룹 운영" 부분을 참조
+
+혹시 원하시면 제가 이 내용을 **샘플 목차 + 슬라이드 구조(예: 1장=연혁, 2장=조직, 3장=사업분야, 4장=재무)** 형태로 설계해드릴까요?
+"""
+    },
+    {
+        "question": "우리가 현재 가지고 있는 자료 중에 또 유사한 사례가 기존에 있었을까?",
+        "answer": """
+💡 LLM을 이용하여 내부 문서를 참조하는 챗봇을 구성했다는 점에서, 삼성전자 **루비콘 제안서**를 참고하시기를 추천드립니다.
+
+- 삼성화재의 RFP는 임직원 업무지원 챗봇(가칭 화재GPT) 상세 설계 및 To-Be 모델 정의를 요구
+- 내부 통제 자동화(채무구조도, 광고심의 자동화 등) 단계별 로드맵 및 서비스 설계
+- 루비콘 제안서는 생성형 AI 플랫폼 구축 및 대고객 상담봇 운영까지의 일정을 제안
+- LLM 챗봇 및 내부 문서 참조라는 공통점을 가지고 있음
+
+또한 금융 업계의 보안 가이드라인을 제시하고 있는 KRX 제안서의 8~11pg도 참고하시기 바랍니다.
+"""
+    },
+    {
+        "question": "여기 인력 리스트를 바탕으로, 어떤 사람이 이 프로젝트에 적합할지 제안해 줘. 참고로 Senior Associate 2명, Associate 1명이 필요해.",
+        "answer": """
+📌 **프로젝트 투입 인력 추천 및 사유**
+
+1. 박정수 Senior Associate
+    - 본 프로젝트의 핵심 과업인 **AI 중장기 로드맵 및 서비스 적용 전략 수립**과 직접적으로 부합
+    - 금융·보험 업계 컨설팅 경험이 풍부하여, **삼성화재의 조직 특성과 시장 규제 환경을 고려한 전략 정립 가능**
+
+
+2. 이민우 Senior Associate
+    - RFP에서 강조된 **내부통제 자동화 및 규제 대응 로드맵 수립**에 최적의 전문성 보유
+    - 금융 규제 변화 타임라인 모니터링 및 대응 전략을 제안할 수 있어, **리스크 최소화 및 실행 가능성 제고에 기여**
+
+
+3. 박지수 Associate
+    - 본 프로젝트에서 요구하는 **임직원 업무지원 챗봇(화재GPT) 설계·구축 방안**과 직접적으로 연계
+    - 데이터 전처리, 시스템 인터페이스 연계 등 **기술적 구현 가능성을 검증할 핵심 인력**
+
+종합적으로, 이 세 명은 각각 전략 - 규제/통제 - 기술의 축을 담당하여 아래 RFP에서 요구한 내용을 유기적으로 커버할 수 있습니다.
+
+- AI 중장기 전략 수립
+- 내부통제 자동화 및 규제 대응
+- 챗봇/생성형 AI 서비스 적용
+    
+이 외 추가로 필요한 인력이 있으시면 말씀해주세요.
+"""
+    }
+]
+
+# Initialize FAQ system with hardcoded parameters
+FAQ_SYSTEM = SimpleFAQSystem(FAQ_DATA, similarity_threshold=0.7)  # Balanced threshold for good matching

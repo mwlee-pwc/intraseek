@@ -12,6 +12,7 @@ from function_utils import (
     load_retriver,
     pain_history,
     send_message,
+    FAQ_SYSTEM,
 )
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_core.prompts import load_prompt
@@ -23,6 +24,7 @@ from intraseek.utils.config_loader import dump_yaml, load_yaml
 from intraseek.utils.path import DEMO_IMG_PATH, LOG_PATH
 from intraseek.utils.rag_utils import delete_incomplete_logs, format_docs_with_source
 import json
+import time
 
 load_dotenv()
 
@@ -443,19 +445,31 @@ with col2:
                     send_message(message, "human")
                     
                     try:
-                        prompt = st.session_state["selected_prompt"]
-                        chain = build_simple_chain(
-                            retriever=retriever,
-                            prompt=prompt,
-                            llm=llm,
-                            load_memory_func=load_memory,
-                            format_docs_func=format_docs_with_source,
-                        )
+                        # Check FAQ first
+                        faq_response = FAQ_SYSTEM.get_response(message)
+                        
+                        if faq_response:
+                            # Use FAQ response with a small delay to make it feel more natural
+                            time.sleep(0.5)
+                            with st.chat_message("ai", avatar=ai_avatar_image if ai_avatar_image else "🤖"):
+                                st.write(faq_response)
+                                memory.save_context({"input": message}, {"output": faq_response})
+                                st.session_state["memory"] = memory
+                        else:
+                            # Use normal RAG processing
+                            prompt = st.session_state["selected_prompt"]
+                            chain = build_simple_chain(
+                                retriever=retriever,
+                                prompt=prompt,
+                                llm=llm,
+                                load_memory_func=load_memory,
+                                format_docs_func=format_docs_with_source,
+                            )
 
-                        with st.chat_message("ai", avatar=ai_avatar_image if ai_avatar_image else "🤖"):
-                            content = chain.invoke(message).content
-                            memory.save_context({"input": message}, {"output": content})
-                            st.session_state["memory"] = memory
+                            with st.chat_message("ai", avatar=ai_avatar_image if ai_avatar_image else "🤖"):
+                                content = chain.invoke(message).content
+                                memory.save_context({"input": message}, {"output": content})
+                                st.session_state["memory"] = memory
                     except Exception as e:
                         st.error(f"❌ Error processing your question: {str(e)}")
                         
