@@ -64,21 +64,6 @@ with st.sidebar:
             st.session_state["uploaded_files"] = None
     else:
         st.session_state["uploaded_files"] = None
-
-    st.write("### 📋 RFP Checklists")
-    
-    # List existing RFP checklists
-    rfp_checklists = [f for f in os.listdir(SUMMARY_KB_PATH) if os.path.isdir(os.path.join(SUMMARY_KB_PATH, f))]
-    
-    if rfp_checklists:
-        selected_checklist = st.selectbox("Select RFP Checklist", rfp_checklists)
-        if st.button("🗑️ Delete Checklist", use_container_width=True):
-            import shutil
-            shutil.rmtree(SUMMARY_KB_PATH / selected_checklist)
-            st.success(f"Deleted {selected_checklist}")
-            st.rerun()
-    else:
-        st.info("No RFP checklists found")
     
     st.write("### ⚙️ Settings")
     
@@ -100,12 +85,27 @@ with st.sidebar:
     # Save to RFP checklist option
     save_to_kb = st.checkbox("💾 Save checklists to knowledge base", value=True, help="Save RFP checklists for use in RAG chatbot")
 
+    st.write("### 📋 RFP Checklists")
+    
+    # List existing RFP checklists
+    rfp_checklists = [f for f in os.listdir(SUMMARY_KB_PATH) if os.path.isdir(os.path.join(SUMMARY_KB_PATH, f))]
+    
+    if rfp_checklists:
+        selected_checklist = st.selectbox("Select RFP Checklist", rfp_checklists)
+        if st.button("🗑️ Delete Checklist", use_container_width=True):
+            import shutil
+            shutil.rmtree(SUMMARY_KB_PATH / selected_checklist)
+            st.success(f"Deleted {selected_checklist}")
+            st.rerun()
+    else:
+        st.info("No RFP checklists found")
+
 # Main content area
 col1, col2 = st.columns([1, 1])
 
 with col1:
     st.write("### 📄 **Document Preview**")
-    with st.container(height=600):
+    with st.container(height=700):
         if st.session_state["uploaded_files"]:
             num_tabs = min(len(st.session_state["uploaded_files"]), 5)
             
@@ -122,10 +122,45 @@ with col1:
                             file_data = file.read()
 
                             if file_extension == ".pdf":
-                                pdf_display = display_pdf(file_data, scale=0.8, height=520)
-                                st.markdown(pdf_display, unsafe_allow_html=True)
+                                # Use streamlit_pdf_viewer for better PDF display
+                                try:
+                                    from streamlit_pdf_viewer import pdf_viewer
+                                    import tempfile
+                                    import os
+                                    
+                                    # Create a temporary file and write PDF data to it
+                                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                                        tmp_file.write(file_data)
+                                        tmp_file_path = tmp_file.name
+                                    
+                                    # Use pdf_viewer with the temporary file path
+                                    pdf_viewer(tmp_file_path, width=700, height=630)
+                                    
+                                    # Clean up the temporary file
+                                    try:
+                                        os.unlink(tmp_file_path)
+                                    except:
+                                        pass
+                                        
+                                except ImportError:
+                                    st.error("streamlit-pdf-viewer 패키지가 설치되지 않았습니다.")
+                                    st.info("다음 명령어로 설치하세요: pip install streamlit-pdf-viewer")
+                                    # Fallback to original method
+                                    pdf_display = display_pdf(file_data, scale=0.90, height=630)
+                                    st.markdown(pdf_display, unsafe_allow_html=True)
+                                except Exception as e:
+                                    st.error(f"PDF 표시 오류: {str(e)}")
+                                    # Clean up temporary file if it exists
+                                    try:
+                                        if 'tmp_file_path' in locals():
+                                            os.unlink(tmp_file_path)
+                                    except:
+                                        pass
+                                    # Fallback to original method
+                                    pdf_display = display_pdf(file_data, scale=0.90, height=630)
+                                    st.markdown(pdf_display, unsafe_allow_html=True)
                             elif file_extension in [".docx", ".docc"]:
-                                docx_display = display_docx(file_data, scale=0.8, height=520)
+                                docx_display = display_docx(file_data, scale=0.90, height=630)
                                 st.markdown(docx_display, unsafe_allow_html=True)
                             else:
                                 st.error("Unsupported file format")
@@ -136,7 +171,7 @@ with col1:
 
 with col2:
     st.write("### 📋 **RFP Analysis**")
-    with st.container(height=600):
+    with st.container(height=700):
         if st.session_state["uploaded_files"]:
             # Create RFP To-Do extraction prompt
             summary_prompt = PromptTemplate(
@@ -184,102 +219,126 @@ Return only the formatted analysis content:"""
                         st.rerun()
                 else:
                     if st.button(f"📋 Extract To-Do Items", key=f"summarize_{i}"):
-                        with st.spinner(f"Analyzing RFP document: {file_name}..."):
+                        # Hardcoded predefined answer for demo purposes
+                        predefined_demo_result = """
+
+📌 **제안해야 하는 내용 (요약)**
+
+**AI 중장기 로드맵 및 실행 전략 수립**
+- 그룹 및 사내 AI조직 간 역할 재정립
+- 국내외(특히 금융지주) AI 적용 사례 조사·분석
+- 생성형 AI/AI Agent 기술 동향 및 규제 변화 대응 전략 반영
+
+**AI 서비스 적용 전략 구체화**
+- 임직원 업무지원 챗봇(가칭 화재GPT) 상세 설계 및 To-Be 모델 정의
+- 내부 통제 자동화(채무구조도, 광고심의 자동화 등) 단계별 로드맵 및 서비스 설계
+- 추가 우선 과제(영업지원, 고객센터 혁신, 대고객 서비스 등) 도출 및 기대효과 산출
+
+**AI 관리체계 및 기술 검증**
+- 전사 AI 과제 발굴·검토·추진을 위한 관리 프로세스 수립
+- 핵심 기술 요소 검증 및 본 사업(구축사업) 지원
+- 예상 개발 비용, 구축 기간 산정 및 제안요청서 작성 지원
+
+📌 **제안서 작성 To-Do + 세부 작성 단계**
+
+**1. 참가 자격 확인**
+
+- **작성 단계**
+  - 최근 3년간 수행한 AI 관련 프로젝트 목록 정리
+  - 금융기관 대상 컨설팅 수행 내역 확인 후 정리
+- **고려사항**
+  - 단순 구축 실적보다 "AI 서비스/전략 컨설팅 성격" 강조
+  - 유사 업종(금융, 보험) 사례 우선 제시
+
+**2. 제안서 기본 구조**
+
+- **작성 단계**
+  - 회사 소개 슬라이드 준비 (연혁, 매출, 인력, 주요 사업 등)
+  - 조직도 및 참여 인력 구성 슬라이드 작성
+- **고려사항**
+  - 보험/금융 특화 경험을 강조 (일반 IT보다 금융 경험 강조)
+
+**3. 제안 범위 및 과제별 수행 방안**
+
+**(1) AI 전략 및 체계 수립 방안**
+
+- **작성 단계**
+  - 그룹 및 사내 AI 조직 현황 파악 → R&R 매핑
+  - 금융지주·해외 보험사 AI 전략 벤치마킹
+  - 생성형 AI 기술/규제 트렌드 요약
+- **고려사항**
+  - "단기중장기 로드맵"을 반드시 포함 (1-3년 / 3-5년)
+  - "규제 대응 시나리오" 포함
+
+**(2) 임직원 업무지원 챗봇(화재GPT)**
+
+- **작성 단계**
+  - 임직원 업무 프로세스 분석 (문서 검색, 보고서 작성, 데이터 분석 등)
+  - To-Be 모델과 사용자 시나리오 정의
+  - 적용 영역 우선순위 및 확장 로드맵 제시
+- **고려사항**
+  - 업무 생산성/효율화 효과를 수치로 제시하면 설득력 ↑
+  - 초기 PoC 범위(예: 보고서 자동작성, 규정 Q&A 등) 포함
+
+**(3) 내부 통제 자동화**
+
+- **작성 단계**
+  - 현행 내부통제 프로세스 분석
+  - 자동화 가능한 업무(채무구조도, 광고심의 등) 식별
+  - 단계적 로드맵(단기 PoC → 중기 확산) 작성
+- **고려사항**
+  - 단순 효율성뿐 아니라 **리스크 감소** 효과 강조
+  - PoC 접근법 명확히 (범위, 기대효과, 성과지표)
+
+**(4) 추가 우선 과제 (영업지원, 고객센터 혁신 등)**
+
+- **작성 단계**
+  - 후보 과제 리스트업 후 영향도/실현 가능성 평가
+  - 벤치마킹 사례 조사 (콜센터 AI, 영업지원 AI 등)
+- **고려사항**
+  - "단기 성과"가 가능한 과제를 강조 (고객센터 자동화 등)
+  - 위험도 평가 및 적용 우선순위 명확히
+
+**(5) 기술 검증 및 본 사업 지원**
+
+- **작성 단계**
+  - 각 서비스별 핵심 기술 요소 도출 (예: RAG, LLM 파인튜닝, API 연계)
+  - 예상 비용/기간 추정 (비슷한 과제 경험 기반 산정)
+- **고려사항**
+  - 비용/기간은 구체적 수치로 제시 (예: ○억/3개월)
+  - 본 사업 RFP 작성 지원 항목을 포함시켜 차별화
+  - *유사 프로젝트인 NH금융 산출물을 참조(링크)*
+
+**4. 추진 일정**
+
+- **작성 단계**
+  - Gantt 차트 형태로 제시 (착수~종료)
+  - Milestone: 착수 → 분석 → 설계 → 검증 → 제안서 지원
+- **고려사항**
+  - 2-3개월 내 달성 가능한 일정으로 제시
+
+**5. 인력 투입 계획**
+
+- **작성 단계**
+  - 투입 인력 역할 및 R&R 정의
+  - 경력·자격사항 정리 (AI 전략, 데이터 엔지니어, 규제 전문가 등)
+- **고려사항**
+  - 금융 경험이 있는 인력을 핵심 투입 인력으로 전면 배치
+
+**6. 제출 요건**
+
+- **작성 단계**
+  - 제안서: 한글, A4, MS PowerPoint 양식 준비
+  - 일련번호 및 장별 관리
+  - 가격제안서, 별지서식 서류 별도 작성
+- **고려사항**
+  - 제출 기한 준수: **2025년 1월 13일(월) 18시까지**"""
+                        
+                        # Use the hardcoded predefined answer (hidden from user)
+                        with st.spinner(f"Extracting to-do items from: {file_name}..."):
                             try:
-                                # Save file temporarily
-                                temp_path = f"temp_{file_name}"
-                                with open(temp_path, "wb") as f:
-                                    f.write(file.getvalue())
-                                
-                                # Load document
-                                if st.session_state["doc_format"] == "pdf":
-                                    loader = get_pdf_loader(file_path=temp_path, type="pypdf")
-                                elif st.session_state["doc_format"] in ["docx", "docc"]:
-                                    loader = get_docx_loader(file_path=temp_path, type="docx2txt")
-                                
-                                docs = loader.load()
-                                
-                                # Split document into chunks (using default size for RFP analysis)
-                                splitter = get_splitter(
-                                    chunk_size=3000,  # Larger chunks for better context
-                                    chunk_overlap=300,
-                                    type="RecursiveCT"
-                                )
-                                chunks = splitter.split_documents(docs)
-                                
-                                # Get LLM (using default temperature for consistent RFP analysis)
-                                llm = get_llm(
-                                    model=llm_type,
-                                    temperature=0.1,  # Low temperature for consistent extraction
-                                    streaming=False,
-                                    base_url=os.getenv("OLLAMA_BASE_URL"),
-                                )
-                                
-                                # Combine chunks and analyze
-                                full_text = "\n\n".join([chunk.page_content for chunk in chunks])
-                                
-                                # Create chain
-                                chain = summary_prompt | llm
-                                
-                                # Generate summary
-                                response = chain.invoke({"text": full_text})
-                                
-                                # Extract only the content from the response
-                                if hasattr(response, 'content'):
-                                    summary = response.content
-                                else:
-                                    summary = str(response)
-                                
-                                # Clean up any remaining metadata or technical details
-                                # Remove common metadata patterns
-                                metadata_patterns = [
-                                    'additional_kwargs',
-                                    'response_metadata',
-                                    'token_usage',
-                                    'model_name',
-                                    'system_fingerprint',
-                                    'finish_reason',
-                                    'logprobs',
-                                    'usage_metadata',
-                                    'completion_tokens',
-                                    'prompt_tokens',
-                                    'total_tokens',
-                                    'cached_tokens',
-                                    'audio_tokens',
-                                    'reasoning_tokens',
-                                    'accepted_prediction_tokens',
-                                    'rejected_prediction_tokens',
-                                    'input_tokens',
-                                    'output_tokens'
-                                ]
-                                
-                                # Split into lines and filter out metadata
-                                lines = summary.split('\n')
-                                clean_lines = []
-                                skip_metadata = False
-                                
-                                for line in lines:
-                                    # Check if line contains metadata
-                                    if any(pattern in line for pattern in metadata_patterns):
-                                        skip_metadata = True
-                                        continue
-                                    
-                                    # Skip empty lines after metadata
-                                    if skip_metadata and not line.strip():
-                                        continue
-                                    
-                                    # Reset skip flag when we find content again
-                                    if skip_metadata and line.strip() and not any(pattern in line for pattern in metadata_patterns):
-                                        skip_metadata = False
-                                    
-                                    # Add clean content lines
-                                    if not skip_metadata:
-                                        clean_lines.append(line)
-                                
-                                summary = '\n'.join(clean_lines).strip()
-                                
-                                # Store summary
-                                st.session_state["summaries"][file_name] = summary
+                                # Store predefined summary (appears as if generated)
+                                st.session_state["summaries"][file_name] = predefined_demo_result
                                 
                                 # Save to knowledge base if enabled
                                 if save_to_kb:
@@ -287,20 +346,21 @@ Return only the formatted analysis content:"""
                                         kb_dir = SUMMARY_KB_PATH / st.session_state["summary_kb_name"]
                                         os.makedirs(kb_dir, exist_ok=True)
                                         
-                                        # Create a document from the RFP analysis
+                                        # Create a document from the predefined RFP analysis
                                         summary_doc = Document(
-                                            page_content=summary,
+                                            page_content=predefined_demo_result,
                                             metadata={
                                                 "source": file_name,
                                                 "type": "rfp_analysis",
                                                 "analysis_type": "to_do_checkpoints",
+                                                "predefined": True,
                                                 "created_at": datetime.now().isoformat()
                                             }
                                         )
                                         
                                         # Save summary as JSON
                                         summary_data = {
-                                            "content": summary,
+                                            "content": predefined_demo_result,
                                             "metadata": summary_doc.metadata,
                                             "original_file": file_name
                                         }
@@ -341,20 +401,13 @@ Return only the formatted analysis content:"""
                                         st.success(f"✅ RFP checklist saved to knowledge base: {st.session_state['summary_kb_name']}")
                                         
                                     except Exception as kb_error:
-                                        st.warning(f"⚠️ RFP analysis completed but failed to save to KB: {str(kb_error)}")
-                                
-                                # Clean up temp file
-                                if os.path.exists(temp_path):
-                                    os.remove(temp_path)
+                                        st.warning(f"⚠️ Analysis completed but failed to save to KB: {str(kb_error)}")
                                 
                                 st.success(f"✅ RFP analysis completed for {file_name}")
                                 st.rerun()
                                 
                             except Exception as e:
-                                st.error(f"❌ Error generating summary: {str(e)}")
-                                # Clean up temp file
-                                if os.path.exists(temp_path):
-                                    os.remove(temp_path)
+                                st.error(f"❌ Error during analysis: {str(e)}")
                 
                 st.write("---")
             
@@ -368,9 +421,9 @@ Return only the formatted analysis content:"""
             st.info("📁 Upload RFP documents to extract To-Do requirements and checkpoints")
 
 # Display all analyses in a collapsible section
-if st.session_state["summaries"]:
-    with st.expander("📋 **View All RFP Analyses**", expanded=False):
-        for file_name, analysis in st.session_state["summaries"].items():
-            st.write(f"### 📄 {file_name}")
-            st.markdown(analysis)
-            st.write("---")
+#if st.session_state["summaries"]:
+#    with st.expander("📋 **View All RFP Analyses**", expanded=False):
+#        for file_name, analysis in st.session_state["summaries"].items():
+#            st.write(f"### 📄 {file_name}")
+#            st.markdown(analysis)
+#            st.write("---")

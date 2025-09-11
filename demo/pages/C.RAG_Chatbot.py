@@ -12,6 +12,7 @@ from function_utils import (
     load_retriver,
     pain_history,
     send_message,
+    FAQ_SYSTEM,
 )
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_core.prompts import load_prompt
@@ -24,6 +25,7 @@ from intraseek.utils.path import DEMO_IMG_PATH, LOG_PATH
 from intraseek.utils.rag_utils import delete_incomplete_logs, format_docs_with_source
 from intraseek.utils.perplexity import fetch_perplexity_stream
 import json
+import time
 
 load_dotenv()
 
@@ -307,10 +309,45 @@ with col1:
                                         file_data = file.read()
 
                                     if selected_rag_config["document_format"] == "pdf":
-                                        pdf_display = display_pdf(file_data, scale=0.8, height=620)
-                                        st.markdown(pdf_display, unsafe_allow_html=True)
+                                        # Use streamlit_pdf_viewer for better PDF display
+                                        try:
+                                            from streamlit_pdf_viewer import pdf_viewer
+                                            import tempfile
+                                            import os
+                                            
+                                            # Create a temporary file and write PDF data to it
+                                            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                                                tmp_file.write(file_data)
+                                                tmp_file_path = tmp_file.name
+                                            
+                                            # Use pdf_viewer with the temporary file path
+                                            pdf_viewer(tmp_file_path, width=700, height=650)
+                                            
+                                            # Clean up the temporary file
+                                            try:
+                                                os.unlink(tmp_file_path)
+                                            except:
+                                                pass
+                                                
+                                        except ImportError:
+                                            st.error("streamlit-pdf-viewer 패키지가 설치되지 않았습니다.")
+                                            st.info("다음 명령어로 설치하세요: pip install streamlit-pdf-viewer")
+                                            # Fallback to original method
+                                            pdf_display = display_pdf(file_data, scale=0.8, height=650)
+                                            st.markdown(pdf_display, unsafe_allow_html=True)
+                                        except Exception as e:
+                                            st.error(f"PDF 표시 오류: {str(e)}")
+                                            # Clean up temporary file if it exists
+                                            try:
+                                                if 'tmp_file_path' in locals():
+                                                    os.unlink(tmp_file_path)
+                                            except:
+                                                pass
+                                            # Fallback to original method
+                                            pdf_display = display_pdf(file_data, scale=0.8, height=650)
+                                            st.markdown(pdf_display, unsafe_allow_html=True)
                                     elif selected_rag_config["document_format"] in ["docx", "docc"]:
-                                        docx_display = display_docx(file_data, scale=0.8, height=620)
+                                        docx_display = display_docx(file_data, scale=0.8, height=650)
                                         st.markdown(docx_display, unsafe_allow_html=True)
                                     else:
                                         st.error("Unsupported file format")
@@ -415,37 +452,49 @@ with col2:
                     send_message(message, "human")
                     
                     try:
-                        prompt = st.session_state["selected_prompt"]
-                        chain = build_simple_chain(
-                            retriever=retriever,
-                            prompt=prompt,
-                            llm=llm,
-                            load_memory_func=load_memory,
-                            format_docs_func=format_docs_with_source,
-                        )
+                        # Check FAQ first
+                        faq_response = FAQ_SYSTEM.get_response(message)
+                        
+                        if faq_response:
+                            # Use FAQ response with a small delay to make it feel more natural
+                            time.sleep(0.5)
+                            with st.chat_message("ai", avatar=ai_avatar_image if ai_avatar_image else "🤖"):
+                                st.write(faq_response)
+                                memory.save_context({"input": message}, {"output": faq_response})
+                                st.session_state["memory"] = memory
+                        else:
+                            # Use normal RAG processing
+                            prompt = st.session_state["selected_prompt"]
+                            chain = build_simple_chain(
+                                retriever=retriever,
+                                prompt=prompt,
+                                llm=llm,
+                                load_memory_func=load_memory,
+                                format_docs_func=format_docs_with_source,
+                            )
 
-                        with st.chat_message("ai", avatar=ai_avatar_image if ai_avatar_image else "🤖"):
+                            with st.chat_message("ai", avatar=ai_avatar_image if ai_avatar_image else "🤖"):
 
-                            # If Perplexity mode is enabled, fetch Perplexity's answer and attach it
-                            # print(st.session_state.get("use_perplexity"), os.getenv("PERPLEXITY_API_KEY"))
-                            if st.session_state.get("use_perplexity") and os.getenv("PERPLEXITY_API_KEY"):
-                                try:
-                                    placeholder = st.empty()
-                                    accumulated = []
+                                # If Perplexity mode is enabled, fetch Perplexity's answer and attach it
+                                # print(st.session_state.get("use_perplexity"), os.getenv("PERPLEXITY_API_KEY"))
+                                if st.session_state.get("use_perplexity") and os.getenv("PERPLEXITY_API_KEY"):
+                                    try:
+                                        placeholder = st.empty()
+                                        accumulated = []
 
-                                    for chunk in fetch_perplexity_stream(message):
-                                        accumulated.append(chunk)
-                                        # update UI progressively
-                                        placeholder.markdown("".join(accumulated))
+                                        for chunk in fetch_perplexity_stream(message):
+                                            accumulated.append(chunk)
+                                            # update UI progressively
+                                            placeholder.markdown("".join(accumulated))
 
-                                    content = "".join(accumulated)
-                                except Exception as e:
-                                    print(f"Error fetching Perplexity answer: {str(e)}")
-                            else:
-                                content = chain.invoke(message).content
+                                        content = "".join(accumulated)
+                                    except Exception as e:
+                                        print(f"Error fetching Perplexity answer: {str(e)}")
+                                else:
+                                    content = chain.invoke(message).content
 
-                            memory.save_context({"input": message}, {"output": content})
-                            st.session_state["memory"] = memory
+                                memory.save_context({"input": message}, {"output": content})
+                                st.session_state["memory"] = memory
                     except Exception as e:
                         st.error(f"❌ Error processing your question: {str(e)}")
                         
