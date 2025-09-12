@@ -23,6 +23,7 @@ from intraseek.modules.llms import get_llm
 from intraseek.utils.config_loader import dump_yaml, load_yaml
 from intraseek.utils.path import DEMO_IMG_PATH, LOG_PATH
 from intraseek.utils.rag_utils import delete_incomplete_logs, format_docs_with_source
+from intraseek.utils.perplexity import fetch_perplexity_stream
 import json
 import time
 
@@ -185,6 +186,15 @@ with st.sidebar:
             else:
                 st.session_state["selected_rfp_checklist"] = None
 
+
+        use_perplexity = st.checkbox(
+            "Use Perplexity API for answers",
+            value=False,
+            help="When enabled, search from Perplexity API will also be used as a reference.",
+        )
+        # Persist choice
+        st.session_state["use_perplexity"] = use_perplexity
+
         col1, col2 = st.columns(2)
 
         with col1:
@@ -270,7 +280,6 @@ Answer based on the RFP checklists provided. Focus on actionable items, deadline
 
 # Main content area
 col1, col2 = st.columns([1, 1])
-
 with col1:
     st.write("### 📄 **Knowledge Source Preview**")
     with st.container(height=700):
@@ -380,8 +389,6 @@ with col1:
             st.info("🚀 Activate a chatbot to view knowledge source")
 
 with col2:
-    # Display current settings (removed source info for cleaner interface)
-    
     st.write("### 💬 **Chat Interface**")
     with st.container(height=700):
         if st.session_state["rag_qa_on"]:
@@ -467,7 +474,25 @@ with col2:
                             )
 
                             with st.chat_message("ai", avatar=ai_avatar_image if ai_avatar_image else "🤖"):
-                                content = chain.invoke(message).content
+
+                                # If Perplexity mode is enabled, fetch Perplexity's answer and attach it
+                                # print(st.session_state.get("use_perplexity"), os.getenv("PERPLEXITY_API_KEY"))
+                                if st.session_state.get("use_perplexity") and os.getenv("PERPLEXITY_API_KEY"):
+                                    try:
+                                        placeholder = st.empty()
+                                        accumulated = []
+
+                                        for chunk in fetch_perplexity_stream(message):
+                                            accumulated.append(chunk)
+                                            # update UI progressively
+                                            placeholder.markdown("".join(accumulated))
+
+                                        content = "".join(accumulated)
+                                    except Exception as e:
+                                        print(f"Error fetching Perplexity answer: {str(e)}")
+                                else:
+                                    content = chain.invoke(message).content
+
                                 memory.save_context({"input": message}, {"output": content})
                                 st.session_state["memory"] = memory
                     except Exception as e:
